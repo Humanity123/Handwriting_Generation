@@ -42,12 +42,13 @@ def train_and_save_model():
 	with tf.Session() as sess:
 		model = MixtureDensityNetwork(FLAGS, sess,  training = True)
     	model.build_model()
-    	model.train(train_input_data, train_target_data) 
+    	saver = tf.train.Saver()
+    	model.train(train_input_data, train_target_data, saver) 
     	
 
 def sample():
 	''' function to sample from the model '''
-	saved_model_path = '../saved_model/uncond-0.data-00000-of-00001'
+	
 	with tf.Session() as sess:
 		model = MixtureDensityNetwork(FLAGS, sess,  training = False)
     	model.build_model()
@@ -56,21 +57,6 @@ def sample():
     	saver.restore(sess, ckpt.model_checkpoint_path)
     	plot_stroke(model.synthesize(200))
 
-def main(_):
-	max_seq_len = data.read_data(FLAGS.strokes_train_data)
-	# FLAGS.seq_len = max_seq_len
-
-	train_input_data, valid_input_data, train_target_data, valid_target_data\
-		= data.generate_dataset_uncond(FLAGS.strokes_train_data, FLAGS.seq_len)
-	print "Data Loaded!"
-
-	pp.pprint(flags.FLAGS.__flags)
-
-	with tf.Session() as sess:
-		model = MixtureDensityNetwork(FLAGS, sess, training = True)
-    	model.build_model()
-    	model.train(train_input_data, train_target_data) 
-    	# plot_stroke(model.synthesize(200))
-
 if __name__ == '__main__':
+	train_and_save_model()
 	sample()

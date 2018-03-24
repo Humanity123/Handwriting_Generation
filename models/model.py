@@ -137,9 +137,8 @@ class MixtureDensityNetwork(object):
 			self.optim = self.opt.apply_gradients(clipped_grads_and_vars)
 
   		self.sess.run(tf.initialize_all_variables())
-  		self.saver = tf.train.Saver()
 
-	def train(self, strokes_train_data, strokes_target_data):
+	def train(self, strokes_train_data, strokes_target_data, saver):
 		''' function to train the model '''
 
 		train_input  = np.ndarray([self.batch_size, self.seq_len, 3], np.float32)
@@ -181,12 +180,11 @@ class MixtureDensityNetwork(object):
 				print np.any(c2 < 0)
 				print np.any(c3 < 0)
 
-				if batch_idx == 5:
-					self.saver.save(self.sess, self.saved_model_directory, global_step = epoch)
+				
 			print('epoch=%d train-loss=%.2f;' % (epoch, loss))
 			if total_loss_per_epoch < best_loss:
 				best_loss = total_loss_per_epoch
-				self.saver.save(self.sess, self.saved_model_directory, global_step = epoch)
+				saver.save(self.sess, self.saved_model_directory, global_step = epoch)
 
 
 	def synthesize(self, length):
