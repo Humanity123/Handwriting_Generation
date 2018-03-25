@@ -41,7 +41,7 @@ class MixtureDensityNetwork(object):
 			norm_x1 = (x1 - mu1) / sigma1
 			norm_x2 = (x2 - mu2) / sigma2
 			Z = tf.square(norm_x1) + tf.square(norm_x2) - (2. * rho * (norm_x1 * norm_x2))
-			C = 1.0 / (1.0 - tf.square(rho) )
+			C = 1.0 / (1.0 - tf.square(rho) + self.eps)
 
 			normal_bivariate_prob = (1.0 / (2. * cons_pi * sigma1 * sigma2)) * tf.sqrt(C) * tf.exp((-1 * Z) * C / 2.)
 			return normal_bivariate_prob
@@ -78,7 +78,7 @@ class MixtureDensityNetwork(object):
 			masked_loss_per_timestep = tf.multiply(mask, loss_per_timestep_2dim)
 			loss = tf.reduce_sum(masked_loss_per_timestep, axis = 1)
 			self.see = loss
-			log_loss = -1 * tf.reduce_sum(tf.log(loss), axis = 0)
+			log_loss = (-1 * tf.reduce_sum(tf.log(loss), axis = 0))
 			return log_loss
 
 
@@ -99,7 +99,7 @@ class MixtureDensityNetwork(object):
 		l = tf.unstack(self.init_state, axis=0)
 		rnn_tuple_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(l[idx][0],l[idx][1]) for idx in range(self.LSTM_layers)])
 
-		ML_LSTM_output, layer_LSTM_state = tf.nn.dynamic_rnn(ML_LSTM_cell, self.input, initial_state = rnn_tuple_state) #batch * time * layer * LSTM_outdim
+		ML_LSTM_output, self.layer_LSTM_state = tf.nn.dynamic_rnn(ML_LSTM_cell, self.input, initial_state = rnn_tuple_state) #batch * time * layer * LSTM_outdim
 		ML_LSTM_output_4dim = tf.reshape(ML_LSTM_output, [self.batch_size, self.seq_len, 1, self.LSTM_outdim])
 
 		output_W_4dim  = tf.reshape(ML_LSTM_output_W, [1, 1, self.LSTM_outdim, self.Mixture_dim])
@@ -123,7 +123,7 @@ class MixtureDensityNetwork(object):
 
 		normal_bivariate_prob = normal_bivariate(til_x1, til_x2, self.mu1, self.mu2, self.sigma1, self.sigma2, self.rho) #batch time matrix_com
 		self.check4 = normal_bivariate_prob
-		self.loss = get_loss(normal_bivariate_prob, self.pi, eos, self.e, self.mask)
+		self.loss = get_loss(normal_bivariate_prob, self.pi, eos, self.e, self.mask) / self.batch_size
 
 		self.lr = tf.Variable(self.init_lr, trainable=False)
 		self.opt = tf.train.AdagradOptimizer(self.lr)
@@ -143,7 +143,6 @@ class MixtureDensityNetwork(object):
 
 		train_input  = np.ndarray([self.batch_size, self.seq_len, 3], np.float32)
 		train_target = np.ndarray([self.batch_size, self.seq_len, 3], np.float32)
-		print train_input.shape
 		train_mask   = np.ndarray([self.batch_size, self.seq_len], np.float32)
 
 		best_loss = np.inf
@@ -175,10 +174,11 @@ class MixtureDensityNetwork(object):
 																	self.mask  : train_mask})
 				total_loss_per_epoch += loss
 				print loss
-				print np.any(c4 > 1)
-				print np.any(c1 < 0)
-				print np.any(c2 < 0)
-				print np.any(c3 < 0)
+				print np.any(np.isnan(c4))
+				print np.any(np.isnan(c3))
+				print np.any(np.isnan(c2))
+				print np.any(np.isnan(c1))
+				
 
 				
 			print('epoch=%d train-loss=%.2f;' % (epoch, loss))
@@ -215,12 +215,12 @@ class MixtureDensityNetwork(object):
 		stroke_data = np.zeros([1, length, 3])
 		mask_data = np.ones([1, length])
 
-		stroke_data[0][0] = 1
+		stroke_data[0][0][0] = 1
 
 		init_state = self.sess.run(self.init_state)
 
 		for stroke_idx in range(length-1):
-			init_state, pi, mu1, mu2, sigma1, sigma2, rho, e = self.sess.run([self.init_state, self.pi, self.mu1, self.mu2, self.sigma1, 
+			init_state, pi, mu1, mu2, sigma1, sigma2, rho, e = self.sess.run([self.layer_LSTM_state, self.pi, self.mu1, self.mu2, self.sigma1, 
 																	self.sigma2, self.rho, self.e], feed_dict = {
 																	self.input : stroke_data[:, stroke_idx: stroke_idx+1, :],
 																	self.mask : mask_data[:, stroke_idx: stroke_idx+1],
