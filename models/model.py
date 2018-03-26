@@ -74,12 +74,12 @@ class MixtureDensityNetwork(object):
 			self.check3 = reduced_pi_prob
 
 			loss_per_timestep = tf.multiply(reduced_pi_prob, eos_prob_2dim)
-			loss_per_timestep_2dim = tf.reshape(loss_per_timestep, [self.batch_size, self.seq_len])
-			masked_loss_per_timestep = tf.multiply(mask, loss_per_timestep_2dim)
-			loss = tf.reduce_sum(masked_loss_per_timestep, axis = 1)
-			self.see = loss
-			log_loss = (-1 * tf.reduce_sum(tf.log(loss), axis = 0))
-			return log_loss
+			log_loss_per_timestep = tf.log(tf.maximum(loss_per_timestep, 1e-20))
+			masked_log_loss_per_timestep = tf.multiply(mask, log_loss_per_timestep)
+			log_loss = tf.reduce_sum(masked_log_loss_per_timestep), axis = 1)
+			self.see = log_loss
+			reduced_log_loss = (-1 * tf.reduce_sum(log_loss, axis = 0))
+			return reduced_log_loss
 
 
 		self.input  = tf.placeholder(tf.float32, [None, self.seq_len, 3], name = 'input')
@@ -112,7 +112,7 @@ class MixtureDensityNetwork(object):
 		W_multiplied_out_4dim = tf.reshape(W_multiplied_out, [self.batch_size, self.seq_len, self.Mixture_dim])
 		reduced_out = W_multiplied_out_4dim #batch time mix_dim
 
-		y = tf.add(reduced_out, til_output_b) # batch time mix_dim
+		y = reduced_out + til_output_b # batch time mix_dim
 		self.pi, self.mu1, self.mu2, self.sigma1, self.sigma2, self.rho, self.e = get_mixture_parameters(y, self.bias)
 
 		eos, x1, x2 = tf.split(axis = 2, num_or_size_splits = 3, value = self.target)
@@ -123,13 +123,13 @@ class MixtureDensityNetwork(object):
 
 		normal_bivariate_prob = normal_bivariate(til_x1, til_x2, self.mu1, self.mu2, self.sigma1, self.sigma2, self.rho) #batch time matrix_com
 		self.check4 = normal_bivariate_prob
-		self.loss = get_loss(normal_bivariate_prob, self.pi, eos, self.e, self.mask) / self.batch_size
+		self.loss = get_loss(normal_bivariate_prob, self.pi, eos, self.e, self.mask) / (self.batch_size * self.seq_len)
 
 		self.lr = tf.Variable(self.init_lr, trainable=False)
-		self.opt = tf.train.AdagradOptimizer(self.lr)
+		self.opt = tf.train.RMSPropOptimizer(self.lr)
 
 		grads_and_vars = self.opt.compute_gradients(self.loss)
-		clipped_grads_and_vars = [(tf.clip_by_norm(gv[0], self.grad_clip), gv[1]) \
+		clipped_grads_and_vars = [(tf.clip_by_value(gv[0], -1 * self.grad_clip, self.grad_clip), gv[1]) \
                                 for gv in grads_and_vars]
 
 		inc = self.global_step.assign_add(1)
@@ -168,12 +168,22 @@ class MixtureDensityNetwork(object):
 					train_mask[idx, :stroke_input_data.shape[0]].fill(1.)
 					cur += 1
 
+					#return train_input[idx], train_target[idx], train_mask[idx] 
+					# print train_input[idx]
+					# print train_target[idx]
+					# print train_mask[idx]
+					# exit()
+
 				c1,c2,c3, c4, s, loss, _ = self.sess.run( [self.check1, self.check2, self.check3, self.check4, self.see, self.loss, self.optim], feed_dict = {
 																	self.input : train_input,
 																	self.target: train_target,
 																	self.mask  : train_mask})
 				total_loss_per_epoch += loss
 				print loss
+				print c1.shape
+				print c2.shape
+				print c3.shape
+				print c4.shape
 				print np.any(np.isnan(c4))
 				print np.any(np.isnan(c3))
 				print np.any(np.isnan(c2))
@@ -184,7 +194,7 @@ class MixtureDensityNetwork(object):
 			print('epoch=%d train-loss=%.2f;' % (epoch, loss))
 			if total_loss_per_epoch < best_loss:
 				best_loss = total_loss_per_epoch
-				saver.save(self.sess, self.saved_model_directory, global_step = epoch)
+				saver.save(self.sess, self.saved_model_directory+"/uncond", global_step = epoch)
 
 
 	def synthesize(self, length):
