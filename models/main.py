@@ -52,10 +52,10 @@ def train_and_save_model():
 	with tf.Session() as sess:
 		debug_sess = sess
 		model = MixtureDensityNetwork(FLAGS, debug_sess,  training = True)
-    	model.build_model()
-    	saver = tf.train.Saver()
-    	return model.train(train_input_data, train_target_data, saver) 
-    	
+		model.build_model()
+		saver = tf.train.Saver()
+		return model.train(train_input_data, train_target_data, saver) 
+
 
 def sample():
 	''' function to sample from the model '''
@@ -63,14 +63,14 @@ def sample():
 
 	with tf.Session() as sess:
 		model = MixtureDensityNetwork(FLAGS, sess,  training = False)
-    	model.build_model()
-    	saver = tf.train.Saver(sess.trainable_variables())
-    	ckpt = tf.train.get_checkpoint_state(FLAGS.saved_model_directory)
-    	print ckpt.model_checkpoint_path
-    	saver.restore(sess, ckpt.model_checkpoint_path)
-    	strokes = (model.synthesize(600) * std) + mean
+		model.build_model()
+		saver = tf.train.Saver(tf.trainable_variables())
+		ckpt = tf.train.get_checkpoint_state(FLAGS.saved_model_directory)
+		print ckpt.model_checkpoint_path
+		saver.restore(sess, ckpt.model_checkpoint_path)
+		strokes = (model.synthesize(600) * std) + mean
 
-    	plot_stroke(strokes)
+		plot_stroke(strokes)
 
 if __name__ == '__main__':
 	train_and_save_model()

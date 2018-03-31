@@ -14,8 +14,6 @@ class RNNModel(tf.nn.rnn_cell.RNNCell):
 
 		with tf.variable_scope('rnn', reuse=None):
 			self.lstms = [tf.nn.rnn_cell.LSTMCell(num_units) for _ in range(self.LSTM_layers)]
-			self.states = [tf.Variable(tf.zeros([batch_size, s]), trainable=False) for s in self.state_size]
-			self.zero_states = tf.group(*[sp.assign(sc) for sp, sc in zip(self.states, self.zero_state(batch_size, dtype=tf.float32))])
 														
 
 	@property
@@ -67,15 +65,13 @@ class MixtureDensityNetwork(object):
 		self.grad_clip = config.grad_clip
 		self.epochs = config.epochs
 		self.eps = config.eps
-		self.bias = config.bias
 		self.data_scale = config.data_scale
+		self.bias = 0.
+		self.RNN_outkeep_prob = config.RNN_outkeep_prob
 		self.saved_model_directory = config.saved_model_directory
 
-		if training:
-			self.bias = 0.
-			self.RNN_outkeep_prob = config.RNN_outkeep_prob
-
 		if not training:
+			self.bias = config.bias
 			self.batch_size = 1
 			self.seq_len = 1
 			self.RNN_outkeep_prob = 1.0
@@ -164,8 +160,7 @@ class MixtureDensityNetwork(object):
 		ML_LSTM_cell = RNNModel(self.LSTM_layers, self.LSTM_outdim, self.batch_size)
 		self.init_state = tf.identity(ML_LSTM_cell.zero_state(self.batch_size, tf.float32))
 
-		l = tf.unstack(self.init_state, axis=0)
-		rnn_tuple_state = l
+		rnn_tuple_state = tf.unstack(self.init_state, axis=0)
 
 		dropped_out_LSTM_cell = tf.nn.rnn_cell.DropoutWrapper(ML_LSTM_cell, output_keep_prob = self.RNN_outkeep_prob)
 		ML_LSTM_output, self.layer_LSTM_state = tf.nn.dynamic_rnn(dropped_out_LSTM_cell, self.input, initial_state = rnn_tuple_state) #batch * time  * LSTM_outdim
@@ -216,7 +211,7 @@ class MixtureDensityNetwork(object):
 		with tf.control_dependencies([inc]):
 			self.optim = self.opt.apply_gradients(clipped_grads_and_vars, global_step=self.global_step)
 
-  		self.sess.run(tf.initialize_all_variables())
+		self.sess.run(tf.initialize_all_variables())
 
 	def train(self, strokes_train_data, strokes_target_data, saver):
 		''' function to train the model '''

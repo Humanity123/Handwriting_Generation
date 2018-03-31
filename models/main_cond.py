@@ -17,23 +17,22 @@ flags = tf.app.flags
 flags.DEFINE_string("strokes_train_data", "../data/strokes.npy", "train data set path")
 flags.DEFINE_string("sentence_train_data", "../data/sentences.txt", "train data set path")
 flags.DEFINE_string("saved_model_directory", "../", "path to directory containing saved models")
-flags.DEFINE_integer("LSTM_layers", 2, "number of LSTM layers")
+flags.DEFINE_integer("LSTM_layers", 3, "number of LSTM layers")
 flags.DEFINE_integer("mixture_components", 20, "number of components in the mixture model")
 flags.DEFINE_integer("window_mixture_components", 10, "number of components in the mixture model")
 flags.DEFINE_integer("LSTM_outdim", 400, "output dimension of LSTM")
-flags.DEFINE_integer("hidden1_LSTM_outdim", 400, "output dimension of LSTM")
-flags.DEFINE_integer("hidden2_LSTM_outdim", 400, "output dimension of LSTM")
 flags.DEFINE_integer("batch_size", 50, "batch_size")
 flags.DEFINE_integer("epochs", 30, "number of epochs")
-flags.DEFINE_integer("seq_len", 400, "sequence_length")
-flags.DEFINE_integer("sen_len", 120, "sentence_length")
+flags.DEFINE_integer("seq_len", 500, "sequence_length")
+flags.DEFINE_integer("sen_len", 25, "sentence_length")
 flags.DEFINE_integer("char_dim", 64, "char_dimension")
-flags.DEFINE_float("lr", 1e-4, "learning_rate")
+flags.DEFINE_float("lr", 1e-3, "learning_rate")
 flags.DEFINE_float("decay", 0.95, "learning_rate")
 flags.DEFINE_float("momentum", 0.9, "learning_rate")
 flags.DEFINE_float("grad_clip", 10, "gradient_clipping")
-flags.DEFINE_float("eps", 1e-5, "epsillon")
+flags.DEFINE_float("eps", 1e-20, "epsillon")
 flags.DEFINE_float("bias", 0.5, "probability_bias")
+flags.DEFINE_float("RNN_outkeep_prob", 0.8, "RNN_outkeep_prob")
 flags.DEFINE_float("data_scale", 10, "scale down for data points")
 
 
@@ -70,25 +69,25 @@ def train_and_save_model():
 
 	with tf.Session() as sess:
 		model = SynNet(FLAGS, sess,  training = True)
-    	model.build_model()
-    	saver = tf.train.Saver()
-    	model.train(train_input_data, train_target_data, train_sentence_vector_data, saver) 
-    	
+		model.build_model()
+		saver = tf.train.Saver()
+		model.train(train_input_data, train_target_data, train_sentence_vector_data, saver) 
+
 
 def sample(sentence):
 	''' function to sample from the model '''
 	
-	sentence_vector = [get_1_hot_data(sentence), char_dict]
+	sentence_vector = get_1_hot_data(sentence, char_dict)
 
 	with tf.Session() as sess:
 		FLAGS.sen_len = len(sentence)
 		model = SynNet(FLAGS, sess,  training = False)
-    	model.build_model()
-    	saver = tf.train.Saver()
-    	ckpt = tf.train.get_checkpoint_state(FLAGS.saved_model_directory)
-    	print ckpt.model_checkpoint_path
-    	saver.restore(sess, ckpt.model_checkpoint_path)
-    	plot_stroke(model.synthesize(600, sentence_vector))
+		model.build_model()
+		saver = tf.train.Saver(tf.trainable_variables())
+		ckpt = tf.train.get_checkpoint_state(FLAGS.saved_model_directory)
+		print ckpt.model_checkpoint_path
+		saver.restore(sess, ckpt.model_checkpoint_path)
+		plot_stroke(model.generate(600, sentence_vector))
 
 if __name__ == '__main__':
 	train_and_save_model()
