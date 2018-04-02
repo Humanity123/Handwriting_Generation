@@ -1,0 +1,6 @@
+model_checkpoint_path: "cond-28"
+all_model_checkpoint_paths: "cond-16"
+all_model_checkpoint_paths: "cond-18"
+all_model_checkpoint_paths: "cond-25"
+all_model_checkpoint_paths: "cond-26"
+all_model_checkpoint_paths: "cond-28"

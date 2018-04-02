@@ -1,4 +1,5 @@
 import numpy
+
 strokes = numpy.load('../data/strokes.npy')
 stroke = strokes[0]
 
@@ -6,7 +7,8 @@ stroke = strokes[0]
 def generate_unconditionally(random_seed=1):
     # Input:
     #   random_seed - integer
-
+    import main_uncond
+    stroke = main_uncond.sample()
     # Output:
     #   stroke - numpy 2D-array (T x 3)
     return stroke
@@ -16,7 +18,8 @@ def generate_conditionally(text='welcome to lyrebird', random_seed=1):
     # Input:
     #   text - str
     #   random_seed - integer
-
+    import main_cond
+    stroke = main_cond.sample(text = text)
     # Output:
     #   stroke - numpy 2D-array (T x 3)
     return stroke
